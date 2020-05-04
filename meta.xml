@@ -1,0 +1,10 @@
+<meta>
+    <info author="dimdey" type="script" version="1.0.0" />
+
+    <script src="shared/scriptsettings.lua" type="shared" />
+
+    <script src="server/smain.lua" type="server" />
+    <script src="server/utils.lua" type="server" />
+
+    <script src="client/cmain.lua" type="client" />
+</meta>
