@@ -14,19 +14,25 @@ local tableremove           = table.remove
 local aSettings = getScriptSettings();
 local nUpdateInterval = aSettings.nUpdateInterval
 
-local g_BotsData = {} -- Bot`s datatable
+g_BotsData = {} -- Bot`s datatable
 
 ----------------
 --- Main code block
 
 CBots = {
-
-    new = function(self, bot, targetPlayer, botData) 
-        if isElement(botElement) then
+    new = function(self, bot, botData) 
+        if isElement(bot) then
             if type(botData) == 'table' then
-                local id = getElementData(bot, "botTID")
+                local id = getElementData(bot, "dd_botTID")
+                local targetPlayer = botData.target 
+
+                if not targetPlayer then
+                    return false;
+                end
+
                 if not g_BotsData[id] or not id then
-                    return self:init(botElement, targetPlayer, botData);
+                    local obj = self:init(bot, targetPlayer, botData);
+                    return obj;
                 end
                 return g_BotsData[id];
             end
@@ -34,29 +40,31 @@ CBots = {
         return false;
     end;
 
-    init = function(self, botElement, targetPlayer, botData)
-        outputDebugString("initial")
-        local object = botData
-            object.element  = botElement;
+    init = function(self, bot, targetPlayer, botData)
+        local object = {unpack(botData)};
+            object.element  = bot;
             object.target   = targetPlayer;
             object.lastHit = 0;
             object.seeData  = {
                 see = false;
-                pos = {Vector3(0,0,0)};
+                pos = {
+                    x = 0,
+                    y = 0,
+                    z = 0};
             };
         local botID = #g_BotsData + 1
-        tableinsert(g_BotsData, botID, object)
+        local newObject = setmetatable(object, self)
+        tableinsert(g_BotsData, botID, newObject)
 
-        setElementData(botElement, "botTID", botID, false)
-        return setmetatable(object, CBots);
+        setElementData(bot, "dd_botTID", botID, false)
+        return newObject;
     end;
 
     delete = function(self, id)
-        outputDebugString("delete")
-        local id = id or getElementData(self.element, "botTID")
+        local id = id or getElementData(self.element, "dd_botTID")
         if id then
             tableremove(g_BotsData, id);
-            setElementData(self.element, "botTID", nil, false)
+            setElementData(self.element, "dd_botTID", nil, false)
             return true;
         end
         
@@ -64,10 +72,10 @@ CBots = {
     end;
 
     update = function(self)
-        outputDebugString(inspect(g_BotsData))
         for index, data in ipairs(g_BotsData) do
             local element = data.element
             local target  = data.target
+            
             if isElement(element) and isElement(data.target) then
                 if data.target then
                     if getElementHealth(element) == 0 or getElementHealth(target) == 0 then
@@ -76,12 +84,12 @@ CBots = {
                     local lX, lY, lZ = getElementPosition(target);
                     local bX, bY, bZ = getElementPosition(element);
 
+                    
                     local see = data:isBotSeePlayer(false)
                     if see then
-                        
-                        self:trigger("onSee");
+                        triggerEvent('onBotSee', data.element, data);
                     else
-                        --onLost
+                        triggerEvent('onBotLost', data.element, data);
                     end
 
                 else
@@ -94,48 +102,89 @@ CBots = {
     end;
     
     isBotSeePlayer = function(self, checkPed)
-        local aBotPos = Vector3(getElementPosition(self.element))
-        local aTargetPos = Vector3(getElementPosition(self.target))
+        local botPosX, botPosY, botPosZ = getElementPosition(self.element)
+        local targetPosX, targetPosY, targetPosZ = getElementPosition(self.target)
         local seeData = self.seeData
+        local viewdistance = self.viewdistance or 10
         
-        if getDistanceBetweenPoints3D(aBotPos.x, aBotPos.y, aBotPos.z, aTPos.x, aTPos.y, aTPos.z) <= botData.viewdistance then
+        if getDistanceBetweenPoints3D(botPosX, botPosY, botPosZ, targetPosX, targetPosY, targetPosZ) <= viewdistance then
             local isclear = isLineOfSightClear(
-                aBotPos.x, aBotPos.y, aBotPos.z, 
-                aTargetPos.x, aTargetPos.y, aTargetPos.z, 
+                botPosX, botPosY, botPosZ, 
+                targetPosX, targetPosY, targetPosZ, 
                 true, false, checkPed, true, true, false, true, target);
             seeData.see = isclear
             if isclear then
-                see.pos = aTargetPos
+                seeData.pos = {
+                    x = targetPosX, 
+                    y = targetPosY, 
+                    z = targetPosZ}
             end
             return isclear
         else
             seeData.see = false;
             return false
         end
-    end;    
-
-    trigger = function(self, event)
-        if self.eventHandlers.event then
-            outputDebugString("TRIGGERED EVENT: "..event)
-        end
     end;
+
+
+    stateHandlers = {
+        hunt = {
+            onSee = function(self)
+                local aBotPos = Vector3(getElementPosition(self.element));
+                local aTargetPos = self.seeData.pos;
+                local angle = getRotateToPoint(self.element, aTargetPos.x, aTargetPos.y);
+                setElementRotation(self.element, 0, 0, angle, 'default', true)
+
+                setPedControlState(self.element, "forwards", true);
+            end; 
+            
+            onLost = function(self)
+                local aTargetPos = self.seeData.pos;
+                if aTargetPos.x and aTargetPos.y then
+                    local aBotPos = Vector3(getElementPosition(self.element))
+                    local distance = getDistanceBetweenPoints3D(
+                        aTargetPos.x, aTargetPos.y, aTargetPos.z,
+                        aBotPos.x, aBotPos.y, aBotPos.z)
+                    if (distance <= 5) or (self.distance and self.distance < distance) then
+                        setControlState(self.element, 'forwards', false);
+                        self.distance = nil;
+                    else
+                        self.distance = distance;
+                    end
+                end
+            end;
+        }
+    }
 
     eventHandlers = { -- EVENT HANDLERS
         onSee = function(self)
             if isElement(self.element) then
-                local aBotPos = Vector3(getElementPosition(self.element));
-                local aTargetPos = self.seeData.pos;
-
-                local nTick = getTickCount();
-                local nLastHit = self.lastHit;
-
-                local block, anim = getPedAnimation(self.element)
+                self.stateHandlers[self.state].onSee(self);
             end
             return false;
         end;
-    }
+
+        onLost = function( self )
+            if self.target then
+                elf.stateHandlers[self.state].onLost(self);
+            end
+        end;    
+    };
+
+    __index = function(self, key)
+        local get = CBots[key]
+        if get then
+            return get;
+        else
+            return rawget(self, key)
+        end
+    end;
 };
 setTimer(CBots.update, nUpdateInterval, 0, CBots)
 
-local ped = createPed(98, 132, -68, 1, 0)
-CBots:new(ped, localPlayer, {})
+setDevelopmentMode(true, true)
+
+addEvent('onBotSee', true)
+addEvent('onBotLost', true)
+addEventHandler('onBotSee', root, CBots.eventHandlers.onSee)
+addEventHandler('onBotLost', root, CBots.eventHandlers.onLost)

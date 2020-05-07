@@ -2,66 +2,129 @@ local aSettings = getScriptSettings();
 g_Data = {}
 g_Data.Bots  = {}
 g_Data.Types = {
-    ['bot'] = {};
+    ['bot'] = true;
 }
 
 SBots = {
-    create = function(botData)
-        if type(botData) == 'table' then
-            if not g_Data.Types[botData.type] then
+    methods = {
+        --------------------
+        -- bool or element SBots:create ( table botData )
+        --[[
+            Creating new AIbot.
+            If the bot is successfully created, the function 
+            returns a metatable of data, otherwise returns false.
+
+            An example you can see in line 147-160[CreateObject function]
+        ]]
+        create = function( self )
+       
+            if not g_Data.Types[self.type] then
                 return false;
             end
-            
-            local spawnX, spawnY, spawnZ = botData.spawnX, botData.spawnY, botData.spawnZ
-            local botElement  = createPed(botData.skin, spawnX, spawnY, spawnZ, botData.spawnRot)
-            local botColShape = createColSphere(spawnX, spawnY, spawnZ, 10)
-            attachElements(botColShape, botElement);
 
+            -- create ped and colshape
+            local spawnX, spawnY, spawnZ = self.spawnX, self.spawnY, self.spawnZ
+            local botElement  = createPed( self.skin, spawnX, spawnY, spawnZ, self.spawnRot ) 
+            local botColShape = createColSphere( spawnX, spawnY, spawnZ, 10 )
+            attachElements( botColShape, botElement );
 
-            local object, id = self:new{
-                element = botElement;
-                type    = botData.type;
-                col     = botColShape;  
-                spawn = {
+            addEventHandler( 'onColShapeHit', botColShape, SEvents.onColShapeHit  )
+    
+
+            local object = {} -- initilize data 
+                object.element = botElement;
+                object.type    = self.type;
+                object.col     = botColShape;  
+                object.spawn = {
                     pos = Vector3(spawnX, spawnY, spawnZ);
-                    rot = botData.spawnRot;
-                    skin  = skin;
+                    rot = self.spawnRot;
+                    skin  = self.skin;
                 };
-                sync = {
+                object.sync = {
                     syncer = nil;
                     players = {};
                 };
-            };
-
-            setElementData(botElement, 'dd_tableID', id);
-            setElementData(botElement, "dd_isAIBot", true);
+            self = object;
             
-            return object;
-        end
-        return false;
-    end;
+            -- Insert data in datatable and init metatable
+            local id = #g_Data.Bots + 1
+            table.insert(g_Data.Bots, id, self)
+            setmetatable(self, { 
+                __index = function(self, key)
+                    outputDebugString(key)
+                    local get = SBots.methods[key]
+                    if get then
+                    
+                        return get;
+                    else
+                        return rawget(self, key);
+                    end
+                end; 
+            });
 
-    new = function(botData)
-        local object = botData;
-        local id = #g_Data.Bots + 1
+            
+            -- Set main element data
+            setElementData( botElement, 'dd_tableID', id, false );
+            setElementData( botElement, "dd_isAIBot", true );
 
+            return self;
+        end;
+    
+        --------------------
+        -- BOT METHODS
 
-        table.insert(g_Data.Bots, id, object)
-        setmetatable(object, SBots);
+        --------------------
+        -- bool SBots:respawn ( )
+        --[[
+            Revives a bot and teleports it to its starting position
+        ]]
 
-        return object, id;
-    end;
+        respawn = function( self )
+            local x, y, z, rotation = self:getSpawnPositions();
+            local element = self.element;
+            element.health = 100;
+            element.position = x, y, z;
+            element.rotation = 0, 0, rotation;
+            return true;
+        end;
 
+        --------------------
+        -- Vector3, number SBots:getSpawnPositions ( )
+        -- Allows you to retrieve the spawn position coordinates of an element.
+        
+        getSpawnPositions = function( self )
+            return self.spawn.pos, self.spawn.rot
+        end;
 
-    methods = { -- public methods
-        updateSyncer = function(self, player) -- choose the best representative for sync
+        --------------------
+        -- Vector3 SBots:getSpawnPositions ( Vector3 positionVector )
+        -- This function sets the position of an element to the specified coordinates.
+
+        setSpawnPositions = function( self, positionVector )
+            self.spawn.pos = positionVector
+            return self.spawn.pos;
+        end;   
+        
+
+        getPosition = function( self )
+            local x, y, z = self.element.position
+            return Vector3(x, y, z);
+        end;
+
+        setPosition = function( self, positionVector )
+            self.element.position = positionVector;
+            return true;
+        end;
+
+        updateSyncer = function( self, player ) -- choose the best representative for sync
             if self.sync.players then 
                 local players = self.sync.players
     
-                local minPing
+                local minPing = 3000
                 local repPlayer
-                for player, sync in pairs(players) do
-                    local playerPing = getPlayerPing(player);
+                outputDebugString(inspect(players))
+                for i, player in ipairs( players ) do
+                    local playerPing = getPlayerPing( player );
                     if playerPing >= 300 then
                         players[player] = nil
                     end;
@@ -71,116 +134,54 @@ SBots = {
                     end;
                 end;
     
-                setElementSyncer(self.element, repPlayer);
-                self.sync.syncer = repPlayer;
-                return repPlayer
+                if repPlayer then
+                    setElementSyncer( self.element, repPlayer );
+                    self.sync.syncer = repPlayer;
+                    return repPlayer
+                end;
             end
             return false;
         end;
     
-        setTarget = function(self, player)
+        setTarget = function( self, player )
             if not self.sync.syncer then
-                self:setSyncer();
+                self:updateSyncer( );
             end
-    
+            local players = self.sync.players
+            if not players[player] and player.type == 'player' then
+                table.insert(self.sync.players, player);
+            end
+            self.target = player;
+            
+            triggerClientEvent( players, "dd_updateBotData", self.element, self )
+            return player;
         end;
     
         getTarget = function(self)
             return self.target;
         end;
     };
-
-    events = {
-        --------------------
-        -- bool or element SBots.events.onBotStreamIn ( element hitElement )
-        --[[
-            Called when a player has entered a colshape.
-        ]]
-
-        onColShapeHit = function(hitElement)
-            local element = getElementAttachedTo(source)
-            if isElement(element) then
-                local elementTable = getElementTable(element)
-                local player
-
-
-                if getElementHealth(element) > 0 then
-
-
-                    if getElementType(hitElement) == "player" then
-                        player = hitElement
-                    elseif getElementType(hitElement) == "vehicle" then
-                        player = getVehicleOccupant(hitElement)
-                    end
-
-
-                    if player then
-                        if not elementTable.target then
-                            return elementTable:setTarget(element);
-                        end
-                    end
-
-                end
-            end
-            return false;
-        end;
-
-        --------------------
-        -- bool SBots.events.onBotStreamIn ( element bot, element player )
-        --[[
-            Called from the clientside when bot entered the player`s stream.
-        ]]
-
-        onBotStreamIn = function(bot, player) 
-            local elementTable = getElementTable(bot)
-            if elementTable then
-                if not elementTable.sync.players[player] then
-                    elementTable.sync.players[player] = true;
-                    if elementTable.target then
-                        triggerClientEvent(player, 'dd_onServerData', bot, elementTable.target);
-                    end
-
-                    if not elementTable.sync.syncer then
-                        elementTable:setSyncer();
-                    end
-
-                    return true;
-                end
-            end
-            return false;
-        end;
-
-        --------------------
-        -- bool SBots.events.onBotStreamOut ( element bot, element player )
-        --[[
-            Called from the clientside when the bot has leave from the player’s stream.
-        ]]
-
-        onBotStreamOut = function(bot, player)
-            local elementTable = getElementTable(bot)
-            if elementTable then
-                if elementTable.sync.players[player] then
-                    if elementTable.sync.syncer == player then
-                        elementTable:updateSyncer();
-                        return true;
-                    end
-                end
-            end
-            return false;
-        end;    
-    };
-
-
-    __index = function(self, key)
-        return rawget(self.methods, key)
-    end;    
 };
 
-local bot = SBots:create{
+function createBot( object )
+    setmetatable( object, {
+        __index = function(self, key)
+            local get = SBots.methods[key]
+            if get then
+                return get;
+            else
+                return rawget(self, key);
+            end
+        end; 
+    });
+    return object:create();
+end
+
+
+local bot = createBot{
     type    = 'bot';
     spawnX  = 132, 
     spawnY  = -68, 
-    spawnZ  = 1    
-}
-
-print(bot);
+    spawnZ  = 1,
+    skin = 0
+};
