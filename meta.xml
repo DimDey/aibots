@@ -3,13 +3,22 @@
 
     <script src="shared/scriptsettings.lua" type="shared" />
 
-    <script src="server/sevents.lua" type="server" />
-    <script src="server/smain.lua" type="server" />
+    <script src="server/engine/smain.lua" type="server" />
+    <script src="server/engine/sevents.lua" type="server" />
+    <script src="server/types/stypes.lua" type="server" />
+    <script src="server/types/waypoint.lua" type="server" />
     <script src="server/sutils.lua" type="server" />
 
-    <script src="client/cmain.lua" type="client" />
-    <script src="client/cevents.lua" type="client" />
+    <script src="client/states/cstates.lua" type="client" />
+    <script src="client/states/default.lua" type="client" />
+    <script src="client/states/waypoint.lua" type="client" />
+
+    <script src="client/engine/cmain.lua" type="client" />
+    <script src="client/engine/cevents.lua" type="client" />
+
     <script src="client/cutils.lua" type="client" />
+    <script src="client/dev/cdebug.lua" type="client" />
+    <script src="client/dev/cwaypointcreator.lua" type="client" />
 
     <oop>true</oop>
 

@@ -1,5 +1,5 @@
 ------------------------------
--- table getElementTable ( )
+-- table/boolean getElementTable ( element element )
 
 function getElementTable(element)
     if isElement(element) then
@@ -9,4 +9,16 @@ function getElementTable(element)
         end
     end
     return false;
+end
+
+------------------------------
+-- table/boolean loadWaypointsFromJSON ( string fileName )
+
+function loadWaypointsFromJSON(fileName)
+    local wayFile = fileOpen('data/waypoints/'..fileName)
+    local count = fileGetSize(wayFile)
+    local data = fileRead(wayFile, count)
+    fileClose(wayFile)
+
+    return fromJSON(data)
 end

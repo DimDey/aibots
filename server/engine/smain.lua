@@ -1,9 +1,6 @@
 local aSettings = getScriptSettings();
 g_Data = {}
 g_Data.Bots  = {}
-g_Data.Types = {
-    ['bot'] = true;
-}
 
 SBots = {
     methods = {
@@ -17,21 +14,24 @@ SBots = {
             An example you can see in line 147-160[CreateObject function]
         ]]
         create = function( self )
-       
-            if not g_Data.Types[self.type] then
+            if not getTypeData(self.type) then
                 return false;
             end
 
-            -- create ped and colshape
+            local typeData = getTypeData(self.type);
+
+            -- INIT PED
             local spawnX, spawnY, spawnZ = self.spawnX, self.spawnY, self.spawnZ
             local botElement  = createPed( self.skin, spawnX, spawnY, spawnZ, self.spawnRot ) 
-            local botColShape = createColSphere( spawnX, spawnY, spawnZ, 10 )
-            attachElements( botColShape, botElement );
+            setPedWalkingStyle(botElement, typeData.walkingstyle)
+            setPedFightingStyle(botElement, typeData.fightingstyle)
 
+            local botColShape = createColSphere( spawnX, spawnY, spawnZ, typeData.viewdistance )
+            attachElements( botColShape, botElement );
             addEventHandler( 'onColShapeHit', botColShape, SEvents.onColShapeHit  )
     
 
-            local object = {} -- initilize data 
+            local object = self -- initilize data 
                 object.element = botElement;
                 object.type    = self.type;
                 object.col     = botColShape;  
@@ -51,7 +51,6 @@ SBots = {
             table.insert(g_Data.Bots, id, self)
             setmetatable(self, { 
                 __index = function(self, key)
-                    outputDebugString(key)
                     local get = SBots.methods[key]
                     if get then
                     
@@ -66,7 +65,8 @@ SBots = {
             -- Set main element data
             setElementData( botElement, 'dd_tableID', id, false );
             setElementData( botElement, "dd_isAIBot", true );
-
+            
+            triggerEvent( 'onAICreate', botElement, object );
             return self;
         end;
     
@@ -85,6 +85,9 @@ SBots = {
             element.health = 100;
             element.position = x, y, z;
             element.rotation = 0, 0, rotation;
+
+            triggerEvent( 'onAIRespawn', element );
+
             return true;
         end;
 
@@ -104,11 +107,10 @@ SBots = {
             self.spawn.pos = positionVector
             return self.spawn.pos;
         end;   
-        
 
         getPosition = function( self )
             local x, y, z = self.element.position
-            return Vector3(x, y, z);
+            return x, y, z;
         end;
 
         setPosition = function( self, positionVector )
@@ -122,12 +124,8 @@ SBots = {
     
                 local minPing = 3000
                 local repPlayer
-                outputDebugString(inspect(players))
-                for i, player in ipairs( players ) do
+                for player, syncable in pairs( players ) do
                     local playerPing = getPlayerPing( player );
-                    if playerPing >= 300 then
-                        players[player] = nil
-                    end;
                     if minPing > playerPing then
                         repPlayer = player;
                         minPing = playerPing;
@@ -148,17 +146,39 @@ SBots = {
                 self:updateSyncer( );
             end
             local players = self.sync.players
-            if not players[player] and player.type == 'player' then
-                table.insert(self.sync.players, player);
+            if (player ~= nil) and (not players[player] and player.type == 'player') then
+                self.sync.players[player] = true
             end
             self.target = player;
+
+            triggerEvent( 'onBotDataUpdate', self.element, self )
             
-            triggerClientEvent( players, "dd_updateBotData", self.element, self )
             return player;
         end;
     
         getTarget = function(self)
             return self.target;
+        end;
+
+        setTeam = function(self, team)
+            if getElementType(team) == 'team' then
+                self.team = team;
+            end
+            triggerEvent( 'onBotDataUpdate', self.element, self )
+        end;
+
+        getTeam = function(self)
+            return self.team;
+        end;
+
+        setWaypoints = function( self, waypointsTable )
+            if self.type == 'waypoint' then
+                if type(waypointsTable) == 'table' then
+                    self.waypoints = waypointsTable;
+                    triggerEvent( 'onBotDataUpdate', self.element, self )
+                    return true;
+                end
+            end
         end;
     };
 };
@@ -177,11 +197,36 @@ function createBot( object )
     return object:create();
 end
 
+addEventHandler('onResourceStart', resourceRoot, function()
 
-local bot = createBot{
-    type    = 'bot';
-    spawnX  = 132, 
-    spawnY  = -68, 
-    spawnZ  = 1,
-    skin = 0
-};
+    local wayData1 = loadWaypointsFromJSON('waypoint1.json')
+    local wayData2 = loadWaypointsFromJSON('waypoint2.json')
+    local wayData3 = loadWaypointsFromJSON('waypoint3.json')
+
+    local bot = createBot{
+        type    = 'waypoint';
+        spawnX  = 135, 
+        spawnY  = -67, 
+        spawnZ  = 1,
+        skin = 44;
+        waypoints = wayData1
+    };
+
+    local bot2 = createBot{
+        type    = 'waypoint';
+        spawnX  = 125, 
+        spawnY  = -86, 
+        spawnZ  = 1,
+        skin = 77;
+        waypoints = wayData2
+    };
+
+    local bot3 = createBot{
+        type    = 'waypoint';
+        spawnX  = 126, 
+        spawnY  = -77, 
+        spawnZ  = 1,
+        skin = 98;
+        waypoints = wayData3
+    };
+end);
