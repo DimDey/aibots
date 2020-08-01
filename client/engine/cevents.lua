@@ -1,6 +1,7 @@
-addEvent('onBotUpdateData', true);
-addEvent('onBotControlsUpdate', true);
-addEvent('onServerAddBot', true)
+addEvent( 'onBotUpdateData', true );
+addEvent( 'onBotControlsUpdate', true );
+addEvent( 'onServerAddBot', true );
+addEvent( 'onServerDeleteBot', true );
 
 
 CEvents = {
@@ -8,10 +9,7 @@ CEvents = {
         if source.type == 'ped' then
             local isBot = source:getData( 'dd_isAIBot' );
             if isBot then
-                local elementTable = getElementTable(source)
-                if not elementTable then
-                    triggerServerEvent( 'onBotStreamIn', localPlayer, source, localPlayer )
-                end
+                triggerServerEvent( 'onBotStreamIn', localPlayer, source, localPlayer )
             end
         end
     end;
@@ -22,9 +20,8 @@ CEvents = {
             if isBot then
                 local elementTable, elementId = getElementTable(source)
                 if elementTable then
-                    g_BotsData[elementId]:delete();
+                    elementTable:syncElement( true );  
                 end
-
                 triggerServerEvent( 'onBotStreamOut', localPlayer, source, localPlayer );
             end
         end
@@ -38,6 +35,13 @@ CEvents = {
             end
         else
             CBot:new( source, data);
+        end
+    end;
+
+    onBotDelete = function( )
+        local elementTable = getElementTable(source)
+        if elementTable then
+            elementTable:delete( );
         end
     end;
 
@@ -70,4 +74,5 @@ addEventHandler( 'onClientElementStreamIn', root, CEvents.onClientElementStreamI
 addEventHandler( 'onClientElementStreamOut', root, CEvents.onClientElementStreamOut )
 addEventHandler( 'onBotUpdateData', root, CEvents.onServerUpdateBotData )
 addEventHandler( 'onBotControlsUpdate', root, CEvents.onBotControlsUpdate )
-addEventHandler( 'onServerAddBot', root, CEvents.onBotAdd)
+addEventHandler( 'onServerAddBot', root, CEvents.onBotAdd )
+addEventHandler( 'onServerDeleteBot', root, CEvents.onBotDelete )

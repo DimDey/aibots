@@ -64,18 +64,19 @@ SEvents = {
         local elementTable = getElementTable( bot )
         if elementTable then
             local firstPlayer = false
-            if #elementTable.sync.players == 0 then
-                setElementFrozen( bot, false );
+            setElementFrozen( bot, false );
+            if elementTable.sync.playersCount == 0 then
                 firstPlayer = player;
             end;
 
             if not elementTable.sync.players[player] then
                 elementTable.sync.players[player] = true;
+                elementTable.sync.playersCount = elementTable.sync.playersCount + 1
                 
                 if not elementTable.sync.syncer then
                     elementTable:updateSyncer( );
                 end
-                triggerClientEvent( player, 'onServerAddBot', bot, elementTable );
+                triggerLatentClientEvent( player, 'onServerAddBot', bot, elementTable );
 
                 triggerEvent( 'onBotDataUpdate', bot, elementTable, firstPlayer );
                 return true;
@@ -96,18 +97,20 @@ SEvents = {
         if elementTable then
             
             if elementTable.sync.players[player] then
+                elementTable.sync.players[player] = nil
+                elementTable.sync.playersCount = elementTable.sync.playersCount - 1
                 if elementTable.sync.syncer == player then
                     elementTable:updateSyncer( );
                 end
-                elementTable.sync.players[player] = nil
                 if elementTable:getTarget() == player then
                     elementTable:setTarget();
                 end
-            else
-                if #elementTable.sync.players == 0 then
-                    setElementFrozen( bot, true )
-                    setPedAnimation( bot )
-                end
+                triggerClientEvent( player, 'onServerDeleteBot', bot )
+            end
+
+            if elementTable.sync.playersCount == 0 then
+                setElementFrozen( bot, true )
+                setPedAnimation( bot )
             end
         end
         return false;
@@ -125,7 +128,7 @@ SEvents = {
             local players = elementData.sync.players
             for player, syncable in pairs(players) do
                 if player ~= notSendToPlayer then
-                    triggerClientEvent( player, 'onBotUpdateData', element, elementData );
+                    triggerLatentClientEvent( player, 'onBotUpdateData', element, elementData );
                 end
             end
         end
@@ -161,13 +164,8 @@ SEvents = {
         if elementTable then
             for index, value in pairs(elementData) do
                 elementTable[index] = value
-                if index == 'target' then
-                    outputDebugString('target: '..tostring(value))
-                    if value == 'lost' then
-                        elementTable:setTarget( );
-                    end
-                end
             end
+            elementTable.target = elementData.target;
         end
 
         if players then

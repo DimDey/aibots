@@ -13,8 +13,11 @@ local CDefaultState = {
                 local see = data:isBotSeePosition(targetPosition.x, targetPosition.y, targetPosition.z, false)
                 if see then
                     CStates:trigger( data, 'onSee' )
+                    triggerEvent( 'onAISeeTarget', data.element, data.target )
                 else
                     CStates:trigger( data, 'onLost' )
+                    triggerEvent( 'onAILostTarget', data.element, data.target )
+
                 end
             end
         end;
@@ -22,13 +25,13 @@ local CDefaultState = {
         onSee = function( self, data )
             local nBotX, nBotY, nBotZ = data.element.position;
             local aTargetPos = data.seeData.pos;
-            local distance = getDistanceBetweenPoints3D(aTargetPos.x, aTargetPos.y, aTargetPos.z, nBotX, nBotY, nBotZ)
+            local nDistance = getDistanceBetweenPoints3D(aTargetPos.x, aTargetPos.y, aTargetPos.z, nBotX, nBotY, nBotZ)
         
-            local angle = getRotateToPoint(data.element, aTargetPos.x, aTargetPos.y);
-            setElementRotation(data.element, 0, 0, angle, 'default', true)
+            local nAngle = getRotateToPoint(data.element, aTargetPos.x, aTargetPos.y);
+            setElementRotation(data.element, 0, 0, nAngle, 'default', true)
             setPedControlState(data.element, "forwards", true);
         
-            if distance <= 1 then
+            if nDistance <= 1 then
                 setPedControlState(data.element, 'fire', true)
                 setPedControlState(data.element, "forwards", false);
             else
@@ -64,10 +67,20 @@ local CDefaultState = {
         end;
 
         onStopSearchTarget = function( self, data )
-            setControlState(data.element, 'forwards', false);
+
+            triggerEvent( 'onAIStopSearchTarget', data.element, data.target )
+
+            setPedControlState(data.element, 'forwards', false);
             setElementData(data.element, 'lastDistanceToTarget', nil, false);
-            data.target = 'lost'    
+            data.target = nil;  
         end;    
     };
 };
 CStates:add(CDefaultState);
+
+--------------------------------
+--- States events
+
+addEvent('onAISeeTarget')
+addEvent('onAILostTarget')
+addEvent('onAIStopSearchTarget')

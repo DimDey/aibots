@@ -27,7 +27,12 @@
 				1,
 				7,
 				11
-			]
+			],
+			"reachTime": 2000,
+			"reachAnimation": { 
+				"anim": "turn_180", 
+				"block": "ped" 
+			} 
 		},
 		{
 			"y": -77,

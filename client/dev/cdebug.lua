@@ -4,7 +4,7 @@ setDevelopmentMode(DEBUG_MODE, DEBUG_MODE)
 function renderDebug()
     for index, data in ipairs(g_BotsData) do
         local bX, bY, bZ = getElementPosition(data.element)
-        if data.target then
+        if data.target and data.target ~= 'lost' then
             local tX, tY, tZ = getElementPosition(data.target)
 
             local color
@@ -42,9 +42,8 @@ function renderDebug()
                     end
                     
                 end
-                
             end
         end
     end
 end
---addEventHandler("onClientPreRender", root, renderDebug)
+addEventHandler("onClientPreRender", root, renderDebug)

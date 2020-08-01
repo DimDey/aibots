@@ -6,11 +6,11 @@ local CWaypointState = {
         onUpdate = function( self, data )
 
             local waypoints = data.waypoints
-            local currentPoint = data.currentWaypoint or 1;
-            local waypointDirection = data.waypointDirection or 'next';
-            local currentTarget = waypoints[currentPoint]
 
-            if data.target ~= 'lost' and data.target ~= nil then  
+            local currentPoint = data.currentWaypoint or 1;
+            local currentTarget = waypoints[currentPoint]
+            
+            if data.target then  
                 return CStates['default'].states['onUpdate']( CStates['default'], data )
             end
             
@@ -19,17 +19,39 @@ local CWaypointState = {
     
     
             if seeWaypoint then
-
-                local angle = getRotateToPoint(data.element, wX, wY);
-                setElementRotation(data.element, 0, 0, angle, 'default', true)
-                setPedControlState(data.element, "forwards", true);
-
                 if waypointDistance < 2 then -- if element near waypoint
-                    self:onWayReached( data );
+                    if currentTarget.reachTime then
+                        if not data.reachTime then
+                            data.reachTime = getTickCount( );
+                        end
+
+                        setPedControlState(data.element, "forwards", false);
+
+                        if currentTarget.reachAnimation and not data.playReachAnimation then
+                            data.playReachAnimation = true
+                            setPedAnimation( data.element, currentTarget.reachAnimation.block, currentTarget.reachAnimation.anim, -1, false, false )
+                            triggerEvent( 'onAIReachAnimation', data.element, currentTarget.reachAnimation );
+                        end
+
+                        if getTickCount( ) - (data.reachTime + currentTarget.reachTime) > 0 then
+
+                            self:onWayReached( data );
+
+                            setPedAnimation( data.element );
+                            data.reachTime = nil
+                            data.playReachAnimation = false
+                        end
+                    else
+                        self:onWayReached( data );
+                    end
+                else
+                    local angle = getRotateToPoint(data.element, wX, wY);
+                    setElementRotation(data.element, 0, 0, angle, 'default', true)
+                    setPedControlState(data.element, "forwards", true);
                 end
             else
+                triggerEvent( 'onAILostWay', data.element, currentTarget )
                 if aSettings.waypointTeleport then
-                    outputConsole(inspect(data))
                     setElementPosition(data.element, wX, wY, wZ, true);
                 else
                     self:changeDirection( data, false );
@@ -39,15 +61,19 @@ local CWaypointState = {
 
     };
 
-    onWayReached = function( self, element )
-        local waypoints = element.waypoints
-        local waypointDirection = element.waypointDirection or 'next';
-        local currentPoint = element.currentWaypoint or 1;
+    onWayReached = function( self, data )
+
+        local waypoints = data.waypoints
+        local waypointDirection = data.waypointDirection or 'next';
+
+        local currentPoint = data.currentWaypoint or 1;
         local currentTarget = waypoints[currentPoint]
+
+        triggerEvent( 'onAIReached', data.element, currentTarget );
 
         if not currentTarget[waypointDirection] or #currentTarget[waypointDirection] == 0 then 
             --If the next point in the current direction does not exist
-            self:changeDirection( element, true );
+            self:changeDirection( data, true );
         end
 
         local wayCounts = #currentTarget[waypointDirection]
@@ -60,23 +86,23 @@ local CWaypointState = {
             nextWay = currentTarget[waypointDirection][1]
         end
 
-        element.currentWaypoint = nextWay
+        data.currentWaypoint = nextWay
 
         return nextWay;
     end;
 
-    changeDirection = function( self, element, calledFromReach )
-        local waypointDirection = element.waypointDirection or 'next';
+    changeDirection = function( self, data, calledFromReach )
+        local waypointDirection = data.waypointDirection or 'next';
 
         if waypointDirection == 'next' then
-            element.waypointDirection = 'back'
+            data.waypointDirection = 'back'
         else
-            element.waypointDirection = 'next'
+            data.waypointDirection = 'next'
         end
-        waypointDirection = element.waypointDirection
+        waypointDirection = data.waypointDirection
 
         if not calledFromReach then
-            self:onWayReached( element );
+            self:onWayReached( data );
         end
         
         return waypointDirection;
@@ -85,3 +111,9 @@ local CWaypointState = {
 
 }
 CStates:add(CWaypointState);
+
+--------------------------------
+--- States events
+addEvent('onAIReachAnimation')
+addEvent('onAIReached')
+addEvent('onAILostWay')

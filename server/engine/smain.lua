@@ -43,6 +43,7 @@ SBots = {
                 object.sync = {
                     syncer = nil;
                     players = {};
+                    playersCount = 0;
                 };
             self = object;
             

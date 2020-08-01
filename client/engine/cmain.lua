@@ -65,11 +65,11 @@ CBot = {
         return newObject;
     end;
 
-    delete = function(self, id)
-        local id = id or getElementData(self.element, "dd_botTID")
-        if id then
-            tableremove(g_BotsData, id);
-            setElementData(self.element, "dd_botTID", nil, false)
+    delete = function(self, botElement )
+        local data, id = getElementTable( self.element or botElement )
+        if data then
+            g_BotsData[id] = nil;
+            setElementData(data.element, "dd_botTID", nil, false)
             return true;
         end
         
@@ -94,17 +94,27 @@ CBot = {
         end;
     end;
 
-    syncElement = function( self, withControls )
+    syncElement = function( self, fastTrigger )
         local element = self.element
         
-        if withControls then
-            --Pairs control states
-            local controls = {}
-            for i, control in ipairs( self.nSyncControls ) do
-                controls[control] = getPedControlState(element, control)
+        --Pairs control states
+        local controls = {}
+        for i, control in ipairs( self.nSyncControls ) do
+            local state
+            if disableAllControls then
+                state = false
+            else
+                state =  getPedControlState(element, control)
             end
+            controls[control] = state
         end
-        triggerLatentServerEvent('onPlayerSendData', element, self, controls)
+
+        if fastTrigger then
+            triggerServerEvent('onPlayerSendData', element, self, controls)
+        else
+            triggerLatentServerEvent('onPlayerSendData', element, self, controls)
+        end
+        
     end;
 
     syncAnimation = function( self, block, anim, time, loop, updatePosition, interruptable, freezeLastFrame, blendTime, retainPedState )
