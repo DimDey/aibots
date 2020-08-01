@@ -41,9 +41,9 @@ CEvents = {
         end
     end;
 
-    onServerUpdateBotData = function(element, data)
+    onServerUpdateBotData = function( data )
         if source ~= localPlayer then
-            local elementTable = getElementTable(element)
+            local elementTable = getElementTable( source )
             if elementTable then
                 for index, value in pairs(data) do
                     elementTable[index] = value;

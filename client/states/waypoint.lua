@@ -10,8 +10,8 @@ local CWaypointState = {
             local waypointDirection = data.waypointDirection or 'next';
             local currentTarget = waypoints[currentPoint]
 
-            if data.target then  
-                return CStates['default']['onUpdate'](data)
+            if data.target ~= 'lost' and data.target ~= nil then  
+                return CStates['default'].states['onUpdate']( CStates['default'], data )
             end
             
             local wX, wY, wZ = currentTarget.x, currentTarget.y, currentTarget.z

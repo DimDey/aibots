@@ -83,7 +83,7 @@ CBot = {
                 if data.sync.syncer == localPlayer then
                     local tick = getTickCount()
                     if tick - self.nLastSync > aSettings.nSyncDataInterval then
-                        data:syncElement();
+                        data:syncElement( true );
                         self.nLastSync = tick
                     end
                 end
@@ -94,13 +94,15 @@ CBot = {
         end;
     end;
 
-    syncElement = function( self )
+    syncElement = function( self, withControls )
         local element = self.element
         
-        --Pairs control states
-        local controls = {}
-        for i, control in ipairs( self.nSyncControls ) do
-            controls[control] = getPedControlState(element, control)
+        if withControls then
+            --Pairs control states
+            local controls = {}
+            for i, control in ipairs( self.nSyncControls ) do
+                controls[control] = getPedControlState(element, control)
+            end
         end
         triggerLatentServerEvent('onPlayerSendData', element, self, controls)
     end;

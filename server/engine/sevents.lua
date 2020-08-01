@@ -12,32 +12,36 @@ SEvents = {
     ]]
 
     onColShapeHit = function( hitElement, matchingDimension )
+        outputDebugString('onColShapeHit')
         if matchingDimension then
             local element = getElementAttachedTo( source )
             if isElement( element ) and element ~= hitElement then
-
-                if getElementHealth( element ) > 0 then
-                    local elementTable = getElementTable( element )
-                    local player
+                local elementTable = getElementTable( element )
                 
-                    if getElementType( hitElement ) == "player" then
+                if not elementTable.attacks then return end;
+                
+                if element.health > 0 then
+                    local player
+                    
+                    if hitElement.type == "player" then
                         player = hitElement
-                    elseif getElementType( hitElement ) == "vehicle" then
+                    elseif hitElement.type == "vehicle" then
                         player = getVehicleOccupant( hitElement )
                     else
                         return 
                     end
-                    local playerTeam = getPlayerTeam(player)
-
-                    if playerTeam == elementTable.team then
-                        return;
-                    end
-
-                    if not elementTable.syncer then
-                        elementTable:updateSyncer( );
-                    end
-
+                    
                     if player then
+                        local playerTeam = player.team
+
+                        if playerTeam == elementTable.team then
+                            return;
+                        end
+
+                        if not elementTable.syncer then
+                            elementTable:updateSyncer( );
+                        end
+
                         if not elementTable.target then
                             return elementTable:setTarget( player );
                         end
@@ -157,6 +161,12 @@ SEvents = {
         if elementTable then
             for index, value in pairs(elementData) do
                 elementTable[index] = value
+                if index == 'target' then
+                    outputDebugString('target: '..tostring(value))
+                    if value == 'lost' then
+                        elementTable:setTarget( );
+                    end
+                end
             end
         end
 

@@ -8,10 +8,9 @@ local CDefaultState = {
                 if element.health == 0 or target.health == 0 then
                     data:delete(index);
                 end
-                local lX, lY, lZ = target.position;
-                local bX, bY, bZ = element.position;
+                local targetPosition = target.position;
                 
-                local see = data:isBotSeePosition(lX, lY, lZ, false)
+                local see = data:isBotSeePosition(targetPosition.x, targetPosition.y, targetPosition.z, false)
                 if see then
                     CStates:trigger( data, 'onSee' )
                 else
@@ -65,9 +64,9 @@ local CDefaultState = {
         end;
 
         onStopSearchTarget = function( self, data )
-            setControlState(self.element, 'forwards', false);
-            setElementData(self.element, 'lastDistanceToTarget', nil, false);
-            self.target = nil    
+            setControlState(data.element, 'forwards', false);
+            setElementData(data.element, 'lastDistanceToTarget', nil, false);
+            data.target = 'lost'    
         end;    
     };
 };

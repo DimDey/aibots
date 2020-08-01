@@ -14,7 +14,7 @@ end
 ------------------------------
 -- table, number getElementTable ( element bot )
 
-function getElementTable(bot)
+function getElementTable( bot )
     if isElement(bot) then
         local id = getElementData(bot, 'dd_botTID')
         if g_BotsData[id] then

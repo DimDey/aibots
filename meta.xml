@@ -8,6 +8,7 @@
     <script src="server/types/stypes.lua" type="server" />
     <script src="server/types/waypoint.lua" type="server" />
     <script src="server/sutils.lua" type="server" />
+    <script src="server/dev/test.lua" type="server" />
 
     <script src="client/states/cstates.lua" type="client" />
     <script src="client/states/default.lua" type="client" />
