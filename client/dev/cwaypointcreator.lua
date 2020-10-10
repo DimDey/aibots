@@ -1,4 +1,4 @@
-local wayp = {}
+--[[local wayp = {}
 local activePoint = nil
 local isMenuActive = false
 local waypointsCount = 0
@@ -146,4 +146,4 @@ local function onRend()
     end
     dxDrawText(inspect(wayp), 500, sH - 10, 600, sH - 100, white, 1, 'default-bold', 'left', 'bottom' )
 end
-addEventHandler('onClientRender', root, onRend)
+addEventHandler('onClientRender', root, onRend)]]

@@ -1,11 +1,11 @@
-g_Data.Types = {}
+aData.types = {}
 
 function addBotType(typeData)
     if type(typeData) == 'table' then
         local typeName = typeData.name
         local isExists = getTypeData(typeName)
         if not isExists then
-            g_Data.Types[typeName] = typeData;
+            aData.types[typeName] = typeData;
             return true
         end
     end
@@ -13,5 +13,5 @@ function addBotType(typeData)
 end
 
 function getTypeData(typeName)
-    return g_Data.Types[typeName];
+    return aData.types[typeName];
 end;

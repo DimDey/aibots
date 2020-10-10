@@ -16,40 +16,8 @@ local CWaypointState = {
             
             local wX, wY, wZ = currentTarget.x, currentTarget.y, currentTarget.z
             local seeWaypoint, waypointDistance = data:isBotSeePosition(wX, wY, wZ, false, 100)
-    
-    
-            if seeWaypoint then
-                if waypointDistance < 2 then -- if element near waypoint
-                    if currentTarget.reachTime then
-                        if not data.reachTime then
-                            data.reachTime = getTickCount( );
-                        end
 
-                        setPedControlState(data.element, "forwards", false);
-
-                        if currentTarget.reachAnimation and not data.playReachAnimation then
-                            data.playReachAnimation = true
-                            setPedAnimation( data.element, currentTarget.reachAnimation.block, currentTarget.reachAnimation.anim, -1, false, false )
-                            triggerEvent( 'onAIReachAnimation', data.element, currentTarget.reachAnimation );
-                        end
-
-                        if getTickCount( ) - (data.reachTime + currentTarget.reachTime) > 0 then
-
-                            self:onWayReached( data );
-
-                            setPedAnimation( data.element );
-                            data.reachTime = nil
-                            data.playReachAnimation = false
-                        end
-                    else
-                        self:onWayReached( data );
-                    end
-                else
-                    local angle = getRotateToPoint(data.element, wX, wY);
-                    setElementRotation(data.element, 0, 0, angle, 'default', true)
-                    setPedControlState(data.element, "forwards", true);
-                end
-            else
+            if not seeWaypoint then
                 triggerEvent( 'onAILostWay', data.element, currentTarget )
                 if aSettings.waypointTeleport then
                     setElementPosition(data.element, wX, wY, wZ, true);
@@ -57,6 +25,38 @@ local CWaypointState = {
                     self:changeDirection( data, false );
                 end
             end
+    
+            if waypointDistance < 2 then -- if element near waypoint
+                if currentTarget.reachTime then
+                    if not data.reachTime then
+                        data.reachTime = getTickCount( );
+                    end
+
+                    setPedControlState(data.element, "forwards", false);
+
+                    if currentTarget.reachAnimation and not data.playReachAnimation then
+                        data.playReachAnimation = true
+                        data:syncAnimation( data.element, currentTarget.reachAnimation.block, currentTarget.reachAnimation.anim, -1, false, false )
+                        triggerEvent( 'onAIReachAnimation', data.element, currentTarget.reachAnimation );
+                    end
+
+                    if getTickCount( ) - (data.reachTime + currentTarget.reachTime) > 0 then
+
+                        self:onWayReached( data );
+
+                        data:syncAnimation( data.element );
+                        data.reachTime = nil
+                        data.playReachAnimation = false
+                    end
+                else
+                    self:onWayReached( data );
+                end
+            else
+                local angle = getRotateToPoint(data.element, wX, wY);
+                setElementRotation(data.element, 0, 0, angle, 'default', true)
+                setPedControlState(data.element, "forwards", true);
+            end
+            
         end;  
 
     };

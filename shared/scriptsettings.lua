@@ -16,8 +16,8 @@ local SCRIPT_SETTINGS = {
         The interval between updating bots on the client side. 
         Standard value: 100ms.
     ]]
-    nSyncDataInterval = 400;
-    waypointTeleport = true; --[[ BOOL
+    nSyncDataInterval = 200;
+    waypointTeleport = false; --[[ BOOL
         If the bot does not see the waypoint, it teleports to the waypoint.
     ]]
 };

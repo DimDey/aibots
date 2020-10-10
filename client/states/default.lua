@@ -67,12 +67,14 @@ local CDefaultState = {
         end;
 
         onStopSearchTarget = function( self, data )
-
             triggerEvent( 'onAIStopSearchTarget', data.element, data.target )
 
             setPedControlState(data.element, 'forwards', false);
             setElementData(data.element, 'lastDistanceToTarget', nil, false);
-            data.target = nil;  
+            data.target = false;  
+            if data.sync.syncer == localPlayer then
+                data:syncAll();
+            end
         end;    
     };
 };

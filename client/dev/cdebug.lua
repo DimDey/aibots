@@ -2,7 +2,8 @@ local DEBUG_MODE = true
 setDevelopmentMode(DEBUG_MODE, DEBUG_MODE)
 
 function renderDebug()
-    for index, data in ipairs(g_BotsData) do
+    local debugPosY = 10;
+    for index, data in ipairs(aBots) do
         local bX, bY, bZ = getElementPosition(data.element)
         if data.target and data.target ~= 'lost' then
             local tX, tY, tZ = getElementPosition(data.target)
@@ -17,7 +18,7 @@ function renderDebug()
             dxDrawLine3D(bX, bY, bZ, tX, tY, tZ, color, 3)
         end
         if data.waypoints then
-            for i = 1, #data.waypoints do
+            --[[for i = 1, #data.waypoints do
                 local waypoint = data.waypoints[i]
                 local wX, wY, wZ = waypoint.x, waypoint.y, waypoint.z
                 dxDrawLine3D(wX, wY, wZ, wX, wY, wZ + 3, tocolor(155, 10, 10, 155), 3)
@@ -42,7 +43,19 @@ function renderDebug()
                     end
                     
                 end
+            end]]
+
+            local currentPoint = data.currentWaypoint or 1
+            local waypoint = data.waypoints[currentPoint]
+            local wX, wY, wZ = waypoint.x, waypoint.y, waypoint.z
+            local sX, sY = getScreenFromWorldPosition( wX, wY, wZ )
+
+            dxDrawLine3D( bX, bY, bZ, wX, wY, wZ, tocolor( 155, 254, 21 ) )
+            
+            if sX and sY then
+                dxDrawText( currentPoint, sX, sY );
             end
+
         end
     end
 end

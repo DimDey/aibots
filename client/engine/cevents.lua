@@ -1,15 +1,9 @@
-addEvent( 'onBotUpdateData', true );
-addEvent( 'onBotControlsUpdate', true );
-addEvent( 'onServerAddBot', true );
-addEvent( 'onServerDeleteBot', true );
-
-
-CEvents = {
+CBotEvents = {
     onClientElementStreamIn = function(  )
         if source.type == 'ped' then
             local isBot = source:getData( 'dd_isAIBot' );
             if isBot then
-                triggerServerEvent( 'onBotStreamIn', localPlayer, source, localPlayer )
+                triggerServerEvent( 'onBotStreamIn', localPlayer, source )
             end
         end
     end;
@@ -19,10 +13,7 @@ CEvents = {
             local isBot = source:getData( 'dd_isAIBot' )
             if isBot then
                 local elementTable, elementId = getElementTable(source)
-                if elementTable then
-                    elementTable:syncElement( true );  
-                end
-                triggerServerEvent( 'onBotStreamOut', localPlayer, source, localPlayer );
+                triggerServerEvent( 'onBotStreamOut', localPlayer, source, elementTable );
             end
         end
     end;
@@ -30,12 +21,9 @@ CEvents = {
     onBotAdd = function( data )
         local existData = getElementTable(source)
         if existData then
-            for index, value in pairs(data) do
-                existData[index] = value;
-            end
-        else
-            CBot:new( source, data);
+            existData:delete( )
         end
+        CBotModule:add( source, data );
     end;
 
     onBotDelete = function( )
@@ -46,33 +34,36 @@ CEvents = {
     end;
 
     onServerUpdateBotData = function( data )
-        if source ~= localPlayer then
+        if source ~= localPlayer and data.sync.syncer == localPlayer then
             local elementTable = getElementTable( source )
             if elementTable then
                 for index, value in pairs(data) do
                     elementTable[index] = value;
                 end
+            else
+                return CBotModule:add( source, elementTable );
             end
         end
     end;
 
-    onBotControlsUpdate = function(element, data, controls)
-        if source ~= localPlayer then
-            local elementTable = getElementTable(element)
-            if elementTable then
-                for controlIndex, controlState in pairs(controls) do
-                    if getPedControlState(element, controlIndex) ~= controlState then
-                        setPedControlState(element, controlIndex, controlState)
-                    end
-                end
+    onBotSyncData = function(syncData)
+        if syncData.controls then
+            for control, state in pairs(syncData.controls) do
+                setPedControlState( source, control, state )
             end
         end
     end;
 };
 
-addEventHandler( 'onClientElementStreamIn', root, CEvents.onClientElementStreamIn )
-addEventHandler( 'onClientElementStreamOut', root, CEvents.onClientElementStreamOut )
-addEventHandler( 'onBotUpdateData', root, CEvents.onServerUpdateBotData )
-addEventHandler( 'onBotControlsUpdate', root, CEvents.onBotControlsUpdate )
-addEventHandler( 'onServerAddBot', root, CEvents.onBotAdd )
-addEventHandler( 'onServerDeleteBot', root, CEvents.onBotDelete )
+addEvent( 'onBotUpdateData', true );
+addEvent( 'onBotSyncData', true );
+addEvent( 'onServerAddBot', true );
+addEvent( 'onServerDeleteBot', true );
+
+addEventHandler( 'onClientElementStreamIn', root, CBotEvents.onClientElementStreamIn )
+addEventHandler( 'onClientElementStreamOut', root, CBotEvents.onClientElementStreamOut )
+
+addEventHandler( 'onBotUpdateData', root, CBotEvents.onServerUpdateBotData )
+addEventHandler( 'onBotSyncData', root, CBotEvents.onBotSyncData )
+addEventHandler( 'onServerAddBot', root, CBotEvents.onBotAdd )
+addEventHandler( 'onServerDeleteBot', root, CBotEvents.onBotDelete )

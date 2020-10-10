@@ -1,81 +1,72 @@
-local aSettings = getScriptSettings();
-g_Data = {}
-g_Data.Bots  = {}
+aData = {}
+aData.bots = {}
 
-SBots = {
-    methods = {
-        --------------------
-        -- bool or element SBots:create ( table botData )
-        --[[
-            Creating new AIbot.
-            If the bot is successfully created, the function 
-            returns a metatable of data, otherwise returns false.
+SBotModule = {
+    --------------------
+    -- bool or element SBotModule:create ( table botData )
+    --[[
+        Creating new AIbot.
+        If the bot is successfully created, the function 
+        returns a metatable of data, otherwise returns false.
 
-            An example you can see in line 147-160[CreateObject function]
-        ]]
-        create = function( self )
-            if not getTypeData(self.type) then
-                return false;
-            end
+        An example you can see in line 147-160[CreateObject function]
+    ]]
+    create = function( self, object )
+        if not getTypeData(object.type) then
+            return false;
+        end
 
-            local typeData = getTypeData(self.type);
+        local typeData = getTypeData(object.type);
+        local bot = object
+            bot.element = createPed( object.skin, object.spawnX, object.spawnY, object.spawnZ, object.spawnRot )
+            bot.col     = createColSphere( object.spawnX, object.spawnY, object.spawnZ, typeData.viewdistance )
+            bot.type    = object.type
 
-            -- INIT PED
-            local spawnX, spawnY, spawnZ = self.spawnX, self.spawnY, self.spawnZ
-            local botElement  = createPed( self.skin, spawnX, spawnY, spawnZ, self.spawnRot ) 
-            setPedWalkingStyle(botElement, typeData.walkingstyle)
-            setPedFightingStyle(botElement, typeData.fightingstyle)
-
-            local botColShape = createColSphere( spawnX, spawnY, spawnZ, typeData.viewdistance )
-            attachElements( botColShape, botElement );
-            addEventHandler( 'onColShapeHit', botColShape, SEvents.onColShapeHit  )
-    
-
-            local object = self -- initilize data 
-                object.element = botElement;
-                object.type    = self.type;
-                object.col     = botColShape;  
-                object.spawn = {
-                    pos = Vector3(spawnX, spawnY, spawnZ);
-                    rot = self.spawnRot;
-                    skin  = self.skin;
-                };
-                object.sync = {
-                    syncer = nil;
-                    players = {};
+            bot.spawn   = {
+                    pos          = Vector3(object.spawnX, object.spawnY, object.spawnZ);
+                    rot          = object.spawnRot;
+                    skin         = object.skin;
+            }
+            bot.sync    = {
+                    syncer       = nil;
+                    players      = {};
                     playersCount = 0;
-                };
-            self = object;
-            
-            -- Insert data in datatable and init metatable
-            local id = #g_Data.Bots + 1
-            table.insert(g_Data.Bots, id, self)
-            setmetatable(self, { 
-                __index = function(self, key)
-                    local get = SBots.methods[key]
-                    if get then
-                    
-                        return get;
-                    else
-                        return rawget(self, key);
-                    end
-                end; 
-            });
+            }
+        
 
-            
-            -- Set main element data
-            setElementData( botElement, 'dd_tableID', id, false );
-            setElementData( botElement, "dd_isAIBot", true );
-            
-            triggerEvent( 'onAICreate', botElement, object );
-            return self;
-        end;
-    
-        --------------------
-        -- BOT METHODS
+        
+        setPedWalkingStyle(bot.element, typeData.walkingstyle)
+        setPedFightingStyle(bot.element, typeData.fightingstyle)
 
-        --------------------
-        -- bool SBots:respawn ( )
+        attachElements( bot.col, bot.element );
+        addEventHandler( 'onColShapeHit', bot.col, SBotEvents.onColShapeHit  )
+
+        local id = #aData.bots + 1
+        setmetatable(bot, { 
+            __index = function(self, key)
+                local get = SBotModule.public[key]
+                if get then
+                    return get;
+                else
+                    return rawget(self, key);
+                end
+            end; 
+        });
+        table.insert(aData.bots, id, bot)
+
+        setElementData( bot.element, 'dd_tableID', id, false );
+        setElementData( bot.element, "dd_isAIBot", true );
+        
+        return bot
+    end;
+
+    --------------------
+    --  BOT METHODS
+
+    --------------------
+    public = {
+        
+        -- bool SBotModule:respawn ( )
         --[[
             Revives a bot and teleports it to its starting position
         ]]
@@ -93,7 +84,7 @@ SBots = {
         end;
 
         --------------------
-        -- Vector3, number SBots:getSpawnPositions ( )
+        -- Vector3, number SBotModule:getSpawnPositions ( )
         -- Allows you to retrieve the spawn position coordinates of an element.
         
         getSpawnPositions = function( self )
@@ -101,7 +92,7 @@ SBots = {
         end;
 
         --------------------
-        -- Vector3 SBots:getSpawnPositions ( Vector3 positionVector )
+        -- Vector3 SBotModule:getSpawnPositions ( Vector3 positionVector )
         -- This function sets the position of an element to the specified coordinates.
 
         setSpawnPositions = function( self, positionVector )
@@ -119,40 +110,51 @@ SBots = {
             return true;
         end;
 
-        updateSyncer = function( self, player ) -- choose the best representative for sync
-            if self.sync.players then 
-                local players = self.sync.players
-    
-                local minPing = 3000
-                local repPlayer
-                for player, syncable in pairs( players ) do
-                    local playerPing = getPlayerPing( player );
-                    if minPing > playerPing then
-                        repPlayer = player;
-                        minPing = playerPing;
-                    end;
-                end;
-    
-                if repPlayer then
-                    setElementSyncer( self.element, repPlayer );
-                    self.sync.syncer = repPlayer;
-                    return repPlayer
-                end;
+        updateSyncer = function( self, bestPlayer ) -- choose the best representative for sync
+            bestPlayer = bestPlayer or nil
+
+            if self.sync.playersCount > 0 then
+                local prevSyncer = self.sync.syncer
+                local minPing = 99999999
+                
+                for player, sync in pairs( self.sync.players ) do
+                    if not sync then return end
+                    if player.type == 'player' then
+                        if player.ping < minPing then
+                            bestPlayer = player
+                            minPing = player.ping
+                        end
+                    end
+                end
             end
-            return false;
+
+            if prevSyncer then
+                triggerClientEvent( prevSyncer, 'onServerDeleteBot', bot )
+            end
+
+            if bestPlayer then
+                setElementSyncer( self.element, bestPlayer );
+                self.sync.syncer = bestPlayer;
+                triggerClientEvent( bestPlayer, 'onServerAddBot', self.element, self );
+
+                
+                return bestPlayer
+            else
+                error('SYNCER FOR AI('..tostring(self.element)..') NOT FOUND')
+                return false;
+            end
         end;
     
         setTarget = function( self, player )
-            if not self.sync.syncer then
-                self:updateSyncer( );
-            end
             local players = self.sync.players
-            if (player ~= nil) and (not players[player] and player.type == 'player') then
+            if player.type == 'player' then
                 self.sync.players[player] = true
+            else
+                self.sync.players[player] = false
             end
             self.target = player;
 
-            triggerEvent( 'onBotDataUpdate', self.element, self )
+            triggerEvent( 'onBotDataUpdate', self.element, self, false )
             
             return player;
         end;
@@ -162,10 +164,10 @@ SBots = {
         end;
 
         setTeam = function(self, team)
-            if getElementType(team) == 'team' then
+            if team.type == 'team' then
                 self.team = team;
             end
-            triggerEvent( 'onBotDataUpdate', self.element, self )
+            triggerEvent( 'onBotDataUpdate', self.element, self, false )
         end;
 
         getTeam = function(self)
@@ -173,27 +175,20 @@ SBots = {
         end;
 
         setWaypoints = function( self, waypointsTable )
-            if self.type == 'waypoint' then
-                if type(waypointsTable) == 'table' then
-                    self.waypoints = waypointsTable;
-                    triggerEvent( 'onBotDataUpdate', self.element, self )
-                    return true;
-                end
+            if type(waypointsTable) == 'table' then
+                self.waypoints = waypointsTable;
+                triggerEvent( 'onBotDataUpdate', self.element, self, false )
+                return true;
             end
         end;
     };
-};
 
-function createBot( object )
-    setmetatable( object, {
-        __index = function(self, key)
-            local get = SBots.methods[key]
-            if get then
-                return get;
-            else
-                return rawget(self, key);
-            end
-        end; 
-    });
-    return object:create();
-end
+    __index = function(self, key)
+        local get = SBotModule.public[key]
+        if get then
+            return get;
+        else
+            return rawget(self, key);
+        end
+    end; 
+};

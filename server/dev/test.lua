@@ -1,11 +1,10 @@
-
 addEventHandler('onResourceStart', resourceRoot, function()
 
     local wayData1 = loadWaypointsFromJSON('waypoint1.json')
     local wayData2 = loadWaypointsFromJSON('waypoint2.json')
     local wayData3 = loadWaypointsFromJSON('waypoint3.json')
 
-    local bot = createBot{
+    local bot = SBotModule:create{
         type    = 'waypoint';
         spawnX  = 135, 
         spawnY  = -67, 
@@ -15,7 +14,7 @@ addEventHandler('onResourceStart', resourceRoot, function()
         attacks = true;
     };
 
-    local bot2 = createBot{
+    local bot2 = SBotModule:create{
         type    = 'waypoint';
         spawnX  = 125, 
         spawnY  = -86, 
@@ -25,7 +24,7 @@ addEventHandler('onResourceStart', resourceRoot, function()
         attacks = true;
     };
 
-    local bot3 = createBot{
+    local bot3 = SBotModule:create{
         type    = 'waypoint';
         spawnX  = 126, 
         spawnY  = -77, 

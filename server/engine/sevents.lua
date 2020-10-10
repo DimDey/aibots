@@ -1,205 +1,145 @@
-addEvent("onBotStreamIn",  true)
-addEvent("onBotStreamOut", true)
-addEvent("onBotDataUpdate")
-addEvent('onPlayerSendData', true)
-addEvent('onBotControlsUpdate', true)
-
-SEvents = {
+SBotEvents = {
     --------------------
-    -- bool or element SEvents.onColShapeHit ( element hitElement, bool matchingDimension )
+    -- bool or element SBotEvents.onColShapeHit ( element hitElement, bool matchingDimension )
     --[[
         Called when a player has entered a colshape.
     ]]
-
     onColShapeHit = function( hitElement, matchingDimension )
-        outputDebugString('onColShapeHit')
-        if matchingDimension then
-            local element = getElementAttachedTo( source )
-            if isElement( element ) and element ~= hitElement then
-                local elementTable = getElementTable( element )
-                
-                if not elementTable.attacks then return end;
-                
-                if element.health > 0 then
-                    local player
-                    
-                    if hitElement.type == "player" then
-                        player = hitElement
-                    elseif hitElement.type == "vehicle" then
-                        player = getVehicleOccupant( hitElement )
-                    else
-                        return 
-                    end
-                    
-                    if player then
-                        local playerTeam = player.team
+        if not matchingDimension then return end;
+        local bot = getElementAttachedTo( source )
+        if bot.type == 'ped' and bot ~= hitElement and bot.health > 0 then
+            local botData = getElementTable( bot )
+            local targetElement
 
-                        if playerTeam == elementTable.team then
-                            return;
-                        end
+            if not botData.attacks then return end;
 
-                        if not elementTable.syncer then
-                            elementTable:updateSyncer( );
-                        end
+            if hitElement.type == "player" then
+                player = hitElement
+            elseif hitElement.type == "vehicle" then
+                player = getVehicleOccupant( hitElement )
+            else
+                return 
+            end
 
-                        if not elementTable.target then
-                            return elementTable:setTarget( player );
-                        end
-                    end
-                    
-                end
+            if player.team == bot.team then return end;
+            
+            if not isElement(botData.target) then
+                botData:setTarget( player );
             end
         end
-        return false;
     end;
 
     --------------------
-    -- bool SEvents.onBotStreamIn ( element bot, element player )
+    -- bool SBotEvents.onBotStreamIn ( element bot )
     --[[
         Called from the clientside when bot entered the player`s stream.
     ]]
 
-    onBotStreamIn = function( bot, player )  
+    onBotStreamIn = function( bot )  
         outputDebugString('onBotStreamIn')
-        local elementTable = getElementTable( bot )
-        if elementTable then
-            local firstPlayer = false
+        local botData = getElementTable( bot )
+        if botData then
             setElementFrozen( bot, false );
-            if elementTable.sync.playersCount == 0 then
-                firstPlayer = player;
-            end;
 
-            if not elementTable.sync.players[player] then
-                elementTable.sync.players[player] = true;
-                elementTable.sync.playersCount = elementTable.sync.playersCount + 1
-                
-                if not elementTable.sync.syncer then
-                    elementTable:updateSyncer( );
-                end
-                triggerLatentClientEvent( player, 'onServerAddBot', bot, elementTable );
+            botData.sync.players[client] = true;
+            botData.sync.playersCount = botData.sync.playersCount + 1
+            botData:updateSyncer( );
 
-                triggerEvent( 'onBotDataUpdate', bot, elementTable, firstPlayer );
-                return true;
-            end
+            triggerEvent( 'onBotDataUpdate', bot, botData, false );
+            return true;
         end
         return false;
     end;
 
     --------------------
-    -- bool SEvents.onBotStreamOut ( element bot, element player )
+    -- bool SBotEvents.onBotStreamOut ( element bot, table playerData )
     --[[
         Called from the clientside when the bot has leave from the player’s stream.
     ]]
 
-    onBotStreamOut = function( bot, player )
-        outputDebugString('onBotStreamOut')
-        local elementTable = getElementTable( bot )
-        if elementTable then
-            
-            if elementTable.sync.players[player] then
-                elementTable.sync.players[player] = nil
-                elementTable.sync.playersCount = elementTable.sync.playersCount - 1
-                if elementTable.sync.syncer == player then
-                    elementTable:updateSyncer( );
-                end
-                if elementTable:getTarget() == player then
-                    elementTable:setTarget();
-                end
-                triggerClientEvent( player, 'onServerDeleteBot', bot )
-            end
 
-            if elementTable.sync.playersCount == 0 then
+    onBotStreamOut = function( bot, playerData ) 
+        outputDebugString('onBotStreamOut')
+        local botData = getElementTable( bot )
+        if botData then
+            
+            if botData.sync.syncer == client then
+                if type(playerData) == 'table' then
+                    for index, value in pairs(playerData) do
+                        botData[index] = value
+                    end
+                end
+                botData:updateSyncer( );
+            end
+            if botData.target == client then
+                botData:setTarget();
+            end
+        
+            botData.sync.players[client] = false
+            botData.sync.playersCount = botData.sync.playersCount - 1
+
+            triggerClientEvent( client, 'onServerDeleteBot', bot )
+
+            if botData.sync.playersCount == 0 then
                 setElementFrozen( bot, true )
                 setPedAnimation( bot )
             end
         end
         return false;
-    end;    
+    end;
 
     --------------------
-    -- bool SEvents.onBotDataUpdate ( table elementData, element notSendToPlayer )
+    -- bool SBotEvents.onBotDataUpdate ( table botData, table controlsList )
     --[[
-        Called when server update data and send it to clientside syncable players.
+        Called when server update data and send it to clientside syncer.
     ]]
 
-    onBotDataUpdate = function( elementData, notSendToPlayer )
-        local element = elementData.element
-        if isElement(element) then
-            local players = elementData.sync.players
-            for player, syncable in pairs(players) do
-                if player ~= notSendToPlayer then
-                    triggerLatentClientEvent( player, 'onBotUpdateData', element, elementData );
-                end
-            end
+    onBotDataUpdate = function( botData, controlsList )
+        local bot = botData.element
+        if isElement(bot) and botData.sync.syncer then
+            triggerLatentClientEvent( botData.sync.syncer, 'onBotUpdateData', bot, botData, controlsList );
         end
     end;
 
     --------------------
-    -- bool SEvents.onBotControlsUpdate ( table elementData, table controlsList )
-    --[[
-        Called when server update ped controls and send it to clientside syncable players.
-    ]]
-
-    onBotControlsUpdate = function( element, elementData, controlsList, withoutPlayer )
-        if element then
-            local players = elementData.sync.players
-            if players then
-                for player, syncable in pairs(players) do
-                    triggerClientEvent( player, 'onBotControlsUpdate', source, element, controlsList );
-                end
-            end
-        end
-    end;
-
-    --------------------
-    -- bool SEvents.onPlayerSendData ( table elementData, table controlsData )
+    -- bool SBotEvents.onPlayerSendData ( table playerData, table syncData )
     --[[
         Called when syncer update data and send it to serverside.
     ]]
 
-    onPlayerSendData = function( elementData, controlsData )
-        local element = source
-        local elementTable = getElementTable(element)
-        local players = elementData.sync.players
-        if elementTable then
-            for index, value in pairs(elementData) do
-                elementTable[index] = value
-            end
-            elementTable.target = elementData.target;
-        end
+    onPlayerSendData = function( playerData, syncData ) 
+        local botData = getElementTable(source)
+        if botData.sync.syncer == client then 
+            if playerData == nil then return error('SYNCER SEND NULL SYNC!') end
 
-        if players then
-            if controlsData then
-                for player, syncable in pairs(players) do
-                    triggerClientEvent(players, 'onBotControlsUpdate', client, source, elementData, controlsData, client );
-                end
+            for index, value in pairs(botData) do
+                botData[index] = playerData[index]
             end
-        end
-        triggerEvent('onBotDataUpdate', client, source, elementTable, client);
-    end;
-    
-    --------------------
-    -- bool SEvents.onSyncerSendAnimation ( table elementData, string block = nil, string anim = nil, int time = -1, bool loop = true, bool updatePosition = true,
-    --[[                                    bool interruptable = true, bool freezeLastFrame = true, int blendTime = 250, bool retainPedState = false )
-        Called when syncer updates the bot animation. 
-        Eventhandler synchronizes animations with other players who sync this bot.
-    ]]
-    onSyncerSendAnimation = function(block, anim, time, loop, updatePosition, interruptable, freezeLastFrame, blendTime, retainPedState)
-        local element = source
-        local elementTable = getElementTable(element)
-        if elementTable then
-            if elementTable.sync.syncer ~= client then
-                triggerClientEvent(client, 'onBotUpdateData', element, elementData)
-            else
-                setPedAnimation(element, anim, time, loop, updatePosition, interruptable, freezeLastFrame, blendTime, retainPedState)
-            end
+            
+            triggerLatentClientEvent( botData.sync.players, 'onBotSyncData', source, syncData );
+
+        else
+            triggerClientEvent( client, 'onServerDeleteBot', source )
+            return error('ANOTHER PLAYER ('..getPlayerName(client)..") TRY TO SENT DATA TO SYNC") 
         end
     end;
-};  
 
-addEventHandler( "onBotStreamIn", root, SEvents.onBotStreamIn )
-addEventHandler( "onBotStreamOut", root, SEvents.onBotStreamOut )
-addEventHandler( "onBotDataUpdate", root, SEvents.onBotDataUpdate )
-addEventHandler( 'onPlayerSendData', root, SEvents.onPlayerSendData )
-addEventHandler( 'onSyncerSendAnimation', root, SEvents.onSyncerSendAnimation )
-addEventHandler( 'onBotControlsUpdate', root, SEvents.onBotControlsUpdate )
+    onPlayerSendAnimation = function( ... )
+        local botData = getElementTable(source)
+        if botData.sync.syncer == client then
+            setPedAnimation( source, ... )
+        end
+    end;
+}
+addEvent("onBotStreamIn",  true)
+addEvent("onBotStreamOut", true)
+addEvent("onBotDataUpdate")
+addEvent('onPlayerSendData', true)
+addEvent('onPlayerSendAnimation', true)
+
+
+addEventHandler( "onBotStreamIn", root, SBotEvents.onBotStreamIn )
+addEventHandler( "onBotStreamOut", root, SBotEvents.onBotStreamOut )
+addEventHandler( "onBotDataUpdate", root, SBotEvents.onBotDataUpdate )
+addEventHandler( 'onPlayerSendData', root, SBotEvents.onPlayerSendData )
+addEventHandler( 'onPlayerSendAnimation', root, SBotEvents.onPlayerSendAnimation )
