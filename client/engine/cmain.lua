@@ -149,7 +149,6 @@ CBot = {
             return get;
         else
             return rawget(self, key);
-        end
     end;
 
 };
